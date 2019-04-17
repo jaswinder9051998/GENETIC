@@ -119,11 +119,22 @@ class population:
         self.matingp=[]
         self.reward=[]
     def create(self,):
+        self.pop=[]
         for i in range(self.popu):
             self.pop.append(ball(self.moves,self.v))
         for obj in self.pop:
             obj.create()
 
+    def reset(self,):
+        self.pop=[]
+        for i in range(self.popu):
+            self.pop.append(ball(self.moves,self.v))
+        for obj in self.pop:
+            self.x=WIDTH/2
+            self.y=50
+            obj.create()
+
+        
     def ct(self,targetx,targety):
         self.targetx=targetx
         self.targety=targety
@@ -132,7 +143,7 @@ class population:
     def fitness(self,):
         self.fit=[]
         for obj in self.pop:
-            self.fit.append(1/(((self.targetx-obj.x)**2+(self.targety-obj.y)**2))**2)
+            self.fit.append(1/(((self.targetx-obj.x)**2+(self.targety-obj.y)**2))**4)
     def mating(self,):
         self.fitness()
         self.matingp=[]
@@ -180,9 +191,9 @@ def main():
     tw=40
     th=40
 
-    moves=60
+    moves=200
     td=targetd(targetx,targety,tw,th)
-    pp=population(1000,0.03,moves,11,td.targetx+td.tw/2,td.targety+td.th/2)
+    pp=population(1000,0.02,moves,15,td.targetx+td.tw/2,td.targety+td.th/2)
     pp.create()
     h1=hurdle(300,240,500,260)
     hurd=[]
@@ -210,6 +221,7 @@ def main():
                     ttx=pos[0]
                     tty=pos[1]
                     hz=hurdle(ttx-20,tty-20,ttx+20,tty+20)
+                    pp.reset()
                     hurd.append(hz)
             key=pygame.key.get_pressed()
             if key[pygame.K_w]:
@@ -231,7 +243,7 @@ def main():
   
             draw_enviroment(pp,hurd,td,game_display)
         gen+=1
-        pp1=population(1000,0.03,moves,11,td.targetx+td.tw/2,td.targety+td.th/2)
+        pp1=population(1000,0.02,moves,15,td.targetx+td.tw/2,td.targety+td.th/2)
         pp1.create()
         pp.fitness();
         print("gen : ",gen,"->",max(pp.fit))
