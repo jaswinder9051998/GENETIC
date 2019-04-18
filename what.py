@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import warnings
 import time
+import sys
 
 warnings.simplefilter("ignore")
 
@@ -25,20 +26,7 @@ targetx=380
 targety=460
 tw=40
 th=40
-    
-
-
-
-
-
-
-
-
-
-
-
-
-def draw_enviroment(pp,hurd,td,game_display):
+def draw_enviroment(pp,hurd,td,game_display,gen):
     game_display.fill(WHITE)
     pygame.draw.line(game_display,(0,0,0),(0,GAMEMIN),(WIDTH,GAMEMIN))
     pygame.draw.rect(game_display,(0,0,0),[td.targetx,td.targety,td.tw,td.th])
@@ -47,12 +35,15 @@ def draw_enviroment(pp,hurd,td,game_display):
     for obj in pp.pop:
         
         pygame.draw.circle(game_display,obj.color,[(int)(obj.x),(int)(obj.y)],obj.size)
-        
-        
+    pp.fitness()
+    ind=pp.fit.index(max(pp.fit))    
+    pygame.font.init()
+    myfont=pygame.font.SysFont('Comic Sans MS',30)
+    textsurface=myfont.render(" Generation : "+str(gen)+" moves : "+str(pp.pop[ind].moveR),False,(0,0,0))
+    game_display.blit(textsurface,(0,0))   
     pygame.display.update()
 
 def drawtarget(td,game_display):
-    #game_display.fill(WHITE)
     pygame.draw.line(game_display,(0,0,0),(0,GAMEMIN),(WIDTH,GAMEMIN))
     pygame.draw.rect(game_display,(0,0,0),[td.targetx,td.targety,td.tw,td.th])
     pygame.display.update()
@@ -89,20 +80,65 @@ class ball(object):
         self.y=50
         self.v=velocity
         self.color=BLUE
+        self.state=True
         self.size=2
+        self.moveR=0
     def create(self,):
         for i in range(self.moves):
             self.angle.append(random.randint(0,360))
     def move(self,xinc,yinc,hurd,td):
-        self.x+=xinc
-        self.y+=yinc
+        self.color=BLUE
+        flag=1
+        if(self.y-self.size<0):
+            self.y=self.size
+            return self.moveR+1
+        
         for t in range(len(hurd)):
-            if((self.x>hurd[t].lx and self.x<hurd[t].rx) and (self.y>hurd[t].ly and self.y<hurd[t].ry)):
-                self.y=hurd[t].ly
-            if((self.x>td.targetx and self.x<td.targetx+td.tw) and (self.y>td.targety and self.y<td.targety+td.th)):
-                self.color=GREEN
-            else:
-                self.color=BLUE
+            if((self.y<=hurd[t].ly and self.x>hurd[t].lx and self.x<hurd[t].rx) and (self.x+xinc>hurd[t].lx and self.x+xinc<hurd[t].rx) and (self.y+yinc>hurd[t].ly)):
+                self.state=False
+                self.color=PINK
+                flag=0
+                break
+            
+            if((self.y<=hurd[t].ly and self.x>=hurd[t].rx) and (self.x+xinc<=hurd[t].rx and self.x+xinc>=hurd[t].lx) and (self.y+yinc<=hurd[t].ry and self.y+yinc>=hurd[t].ly)):
+                self.state=False
+                self.color=PINK
+                flag=0
+                break
+            if((self.x<=hurd[t].lx and self.y<=hurd[t].ly) and  (self.x+xinc<=hurd[t].rx and self.x+xinc>=hurd[t].lx) and (self.y+yinc<=hurd[t].ry and self.y+yinc>=hurd[t].ly )):
+                self.state=False
+                self.color=PINK
+                flag=0
+                break
+            if((self.x>=hurd[t].rx and self.y>hurd[t].ly and self.y<hurd[t].ry) and (self.x+xinc<hurd[t].rx) and (self.y+yinc<hurd[t].ry and self.y+yinc>hurd[t].ly)):
+                self.color=PINK
+                self.state=False
+                flag=0
+                break
+            
+            if((self.x<=hurd[t].lx and (self.y>hurd[t].ly and self.y<hurd[t].ry)) and (self.x+xinc>hurd[t].lx) and (self.y+yinc>hurd[t].ly and self.y+yinc<hurd[t].ry)):
+                self.state=False
+                self.color=PINK
+                flag=0
+                break
+            if((self.y>=hurd[t].ry) and (self.x+xinc>hurd[t].lx and self.x+xinc<hurd[t].rx) and (self.y+yinc>hurd[t].ly and self.y+yinc<hurd[t].ry)):
+                self.state=False
+                self.color=PINK
+                flag=0
+                break
+        
+        if((self.x>=td.targetx and self.x<=td.targetx+td.tw) and (self.y>=td.targety and self.y<=td.targety+td.th)):
+            self.x=td.targetx+tw/2
+            self.y=td.targety+th/2
+            self.color=GREEN
+            return self.moveR
+        if(flag):
+            self.x+=xinc
+            self.y+=yinc
+        return self.moveR+1
+\
+            
+
     
         
 
@@ -132,7 +168,13 @@ class population:
         for obj in self.pop:
             self.x=WIDTH/2
             self.y=50
+            
             obj.create()
+        self.rm()
+    def rm(self,):
+        for obj in self.pop:
+            obj.moveR=0
+        
 
         
     def ct(self,targetx,targety):
@@ -143,20 +185,20 @@ class population:
     def fitness(self,):
         self.fit=[]
         for obj in self.pop:
-            self.fit.append(1/(((self.targetx-obj.x)**2+(self.targety-obj.y)**2))**4)
-    def mating(self,):
+            self.fit.append((1/(1+((self.targetx-obj.x)**2+(self.targety-obj.y)**2)**2))*(1/(obj.moveR+1)))
+    def matingg(self,):
         self.fitness()
         self.matingp=[]
         maxx=max(self.fit)
         i=0
-        for obj in self.pop:
+        for obj,i in zip(self.pop,range(len(self.fit))):
             n=(int)((self.fit[i])/(maxx)*100)
             for j in range(n):
                 self.matingp.append(obj)
-            i+=1
+        print(len(self.matingp))
         
-    def reprod(self,pp1):
-        self.mating()
+    def reprod(self,):
+        self.matingg()
         for i in range(self.popu):
             m=random.randint(0,len(self.matingp)-1)
             n=random.randint(0,len(self.matingp)-1)
@@ -173,11 +215,20 @@ class population:
             for k in range(self.moves):
                 if(random.random()<self.mutR):
                     child.angle[k]=random.randint(0,360)
-            pp1.pop[i]=child
-        return pp1
+            self.pop[i]=child
+        
                     
             
-            
+from pygame.locals import *
+def wait():
+    while True:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type ==pygame.MOUSEBUTTONDOWN:
+                if pygame.mouse.get_pressed()[2]:
+                    return pygame.mouse.get_pos()      
             
         
 
@@ -191,25 +242,25 @@ def main():
     tw=40
     th=40
 
-    moves=200
+    moves=700
     td=targetd(targetx,targety,tw,th)
-    pp=population(1000,0.02,moves,15,td.targetx+td.tw/2,td.targety+td.th/2)
+    pp=population(1000,0.02,moves,7,td.targetx+td.tw/2,td.targety+td.th/2)
     pp.create()
-    h1=hurdle(300,240,500,260)
     hurd=[]
-    hurd.append(h1)
     gen=0
     flag=0
+    
     clock=pygame.time.Clock()
+    click=0
     while True:
         
         
             
 
-
+        pp.rm()
         for i in range(moves):
             for obj in pp.pop:
-                obj.move(math.cos(math.pi*obj.angle[i]/180)*pp.v,math.sin(math.pi*obj.angle[i]/180)*pp.v,hurd,td)
+                obj.moveR=obj.move(math.cos(math.pi*obj.angle[i]/180)*pp.v,math.sin(math.pi*obj.angle[i]/180)*pp.v,hurd,td)
                 for event in pygame.event.get():
                     if event.type==pygame.QUIT:
                         pygame.quit()
@@ -223,6 +274,17 @@ def main():
                     hz=hurdle(ttx-20,tty-20,ttx+20,tty+20)
                     pp.reset()
                     hurd.append(hz)
+                if pygame.mouse.get_pressed()[2]:
+                    click+=1
+                    if click%2==1:
+                        pos1=pygame.mouse.get_pos()
+                        pos2=wait()
+                        hz=hurdle(pos1[0],pos1[1],pos2[0],pos2[1])
+                        pp.reset()
+                        hurd.append(hz)
+                        click=0
+                        break
+                    
             key=pygame.key.get_pressed()
             if key[pygame.K_w]:
                 td.targety-=td.th/4
@@ -241,13 +303,11 @@ def main():
                 
                     
   
-            draw_enviroment(pp,hurd,td,game_display)
+            draw_enviroment(pp,hurd,td,game_display,gen)
         gen+=1
-        pp1=population(1000,0.02,moves,15,td.targetx+td.tw/2,td.targety+td.th/2)
-        pp1.create()
         pp.fitness();
-        print("gen : ",gen,"->",max(pp.fit))
-        pp=pp.reprod(pp1)
+        print("gen : ",gen,"->",pp.pop[pp.fit.index(max(pp.fit))].moveR)
+        pp.reprod()
         
         clock.tick(60)
             
